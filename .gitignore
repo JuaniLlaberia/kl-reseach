@@ -1,0 +1,20 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# W&B local run files
+wandb/
+
+# Model weights (checkpoints live outside git; results/ stays tracked)
+*.safetensors
+*.pt
+*.pth
+*.ckpt
