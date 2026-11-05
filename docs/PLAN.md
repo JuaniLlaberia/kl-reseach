@@ -19,18 +19,18 @@ By the end of this week you can measure forgetting and KL on any checkpoint. No 
 
 **Code the KL module** (you write it; I review)
 
-- [ ] Exact per-token KL over the full vocabulary, forward and reverse, computed in fp32
-- [ ] Response tokens only, never prompt tokens
-- [ ] Two aggregations: average per token (primary) and sum per sequence
-- [ ] k1, k2 and k3 estimators as secondary variants
-- [ ] Base-response sampler: temperature 1.0, no top-p, fixed seed; responses saved once and reused for every checkpoint
+- [x] Exact per-token KL over the full vocabulary, forward and reverse, computed in fp32
+- [x] Response tokens only, never prompt tokens
+- [x] Two aggregations: average per token (primary) and sum per sequence
+- [x] k1, k2 and k3 estimators as secondary variants
+- [x] Base-response sampler: temperature 1.0, no top-p, fixed seed; responses saved once and reused for every checkpoint
 
 **Test it**
 
-- [ ] KL(base ‖ base) = 0
-- [ ] KL is never negative
-- [ ] The average k1 value is close to the exact KL
-- [ ] Record how far bf16 drifts from fp32
+- [x] KL(base ‖ base) = 0
+- [x] KL is never negative
+- [x] The average k1 value is close to the exact KL
+- [x] Record how far bf16 drifts from fp32
 
 **Run**
 
