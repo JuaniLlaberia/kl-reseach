@@ -36,11 +36,11 @@ By the end of this week you can measure forgetting and KL on any checkpoint. No 
 
 - [ ] Retention suite on Qwen2.5-0.5B-Instruct: score, bootstrap CI and minutes per benchmark
 - [ ] Note which benchmarks sit near chance
-- [ ] GPU check: which GPUs Colab Pro and Kaggle actually give you, and whether they support bf16
+- [x] GPU check: which GPUs Colab Pro and Kaggle actually give you, and whether they support bf16
 
 **Admin**
 
-- [ ] Email Shenfeld and Pari with the four questions (KL computation, chemistry split, which points the fit uses, annotations or code). Don't wait for a reply.
+- [x] Email Shenfeld and Pari with the four questions (KL computation, chemistry split, which points the fit uses, annotations or code). Don't wait for a reply.
 
 **Done when** (by Nov 10, 2026): base retention scores are logged and the KL tests pass.
 
