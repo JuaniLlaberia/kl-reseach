@@ -34,8 +34,8 @@ By the end of this week you can measure forgetting and KL on any checkpoint. No 
 
 **Run**
 
-- [ ] Retention suite on Qwen2.5-0.5B-Instruct: score, bootstrap CI and minutes per benchmark
-- [ ] Note which benchmarks sit near chance
+- [x] Retention suite on Qwen2.5-0.5B-Instruct: score, bootstrap CI and minutes per benchmark
+- [x] Note which benchmarks sit near chance
 - [x] GPU check: which GPUs Colab Pro and Kaggle actually give you, and whether they support bf16
 
 **Admin**
