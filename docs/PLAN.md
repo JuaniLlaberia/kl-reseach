@@ -73,13 +73,13 @@ This week ends with a frozen pilot spec and written predictions. If time runs sh
 **Runs** (pipeline checks, not evidence)
 
 - [ ] Zero-training mini-pilot: retention and KL on your Reasoning SLM checkpoints (base, SFT, GRPO). Log anything that tempts you to change the metric
-- [ ] Memory smoke test: 1B full fine-tuning, about 10 steps, 8-bit AdamW, gradient checkpointing
+- [ ] Memory smoke test: 1.5B full fine-tuning, about 10 steps, 8-bit AdamW, gradient checkpointing
 - [ ] Smoke run: about 50 steps per trainer on chemistry. Loss falls, reward varies within groups, checkpoints save and load
 - [ ] Seconds per step for SFT and GRPO, extrapolated to a full run
 
 **Decide and write down** (the pre-registration)
 
-- [ ] Pilot model: 0.5B or 1B
+- [ ] Pilot model: 0.5B or 1.5B
 - [ ] Which checkpoints count as points: final only, or every N steps
 - [ ] Near-chance rule as a number
 - [ ] GRPO group size and prompts per step
@@ -99,7 +99,7 @@ The pilot is one family on one task, run exactly as pre-registered. It answers t
 **Train**
 
 - [ ] 3–4 SFT configs, learning rates from 1e-5 to 9e-5
-- [ ] 3–4 GRPO configs, learning rates from 1e-5 to 5e-5 (Colab Pro if Kaggle's quota runs short)
+- [ ] 3–4 GRPO configs, learning rates from 1e-5 to 5e-5 (Colab Pro)
 - [ ] 2–3 extra seeds on one config, to measure noise
 
 **Measure every checkpoint**
