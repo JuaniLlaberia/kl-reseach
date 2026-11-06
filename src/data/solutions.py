@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import random
 import threading
 import time
 from collections import Counter, defaultdict
@@ -27,7 +28,9 @@ USD_PER_OUTPUT_TOKEN = 10e-6
 MAX_INPUT_TOKENS = 4000
 
 RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
-MAX_RETRIES = 6
+# With the cap below, this waits for about 5 to 10 minutes in total before giving up
+MAX_RETRIES = 10
+MAX_BACKOFF_SECONDS = 120
 
 class BudgetReached(Exception):
     """The next call could pass the spending limit."""
@@ -75,9 +78,34 @@ def default_post(api_key: str, payload: dict) -> tuple[int, dict]:
     except ValueError:
         return response.status_code, {}
 
+def retry_wait(retry: int) -> float:
+    """
+    Gets the wait before a retry. It's randomized so that calls in flight don't all retry at the same moment.
+
+    Args:
+        retry (int): Retry number, starting at 1.
+    Returns:
+        The number of seconds to wait.
+    """
+    return min(2 ** retry, MAX_BACKOFF_SECONDS) * random.uniform(0.5, 1.0)
+
+def describe_error(body: dict) -> str:
+    """
+    Gets OpenRouter's explanation of an error, which shows whether a limit comes from the key or the provider.
+
+    Args:
+        body (dict): JSON body of the response.
+    Returns:
+        The error's message, and the provider and its raw message if they're reported.
+    """
+    error = body.get("error") or {}
+    metadata = error.get("metadata") or {}
+    parts = [str(error.get("message")), metadata.get("provider_name"), str(metadata.get("raw"))[:300] if metadata.get("raw") else None]
+    return " | ".join(part for part in parts if part)
+
 def call_with_retries(post: Callable, api_key: str, payload: dict, sleep: Callable = time.sleep) -> dict:
     """
-    Sends one request, retrying with exponential backoff on temporary failures.
+    Sends one request, retrying with capped exponential backoff on temporary failures.
 
     Args:
         post (Callable): Function that sends the request.
@@ -90,7 +118,7 @@ def call_with_retries(post: Callable, api_key: str, payload: dict, sleep: Callab
     failure = None
     for retry in range(MAX_RETRIES + 1):
         if retry > 0:
-            sleep(2 ** retry)
+            sleep(retry_wait(retry))
         try:
             status, body = post(api_key, payload)
         except requests.RequestException as error:
@@ -103,9 +131,9 @@ def call_with_retries(post: Callable, api_key: str, payload: dict, sleep: Callab
         if status == 200 and error_code is None and body.get("choices"):
             return body
         if status in RETRYABLE_STATUS or error_code in RETRYABLE_STATUS or (status == 200 and error_code is None):
-            failure = f"status {status}, error {error_code}"
+            failure = f"status {status}, error {error_code}: {describe_error(body)}"
             continue
-        raise ApiError(f"OpenRouter returned status {status}: {(body.get('error') or {}).get('message')}")
+        raise ApiError(f"OpenRouter returned status {status}: {describe_error(body)}")
     raise ApiError(f"OpenRouter kept failing after {MAX_RETRIES} retries: {failure}")
 
 def call_cost(usage: dict) -> float:
@@ -231,7 +259,7 @@ def generate_solutions(
     max_tokens: int,
     max_tries: int = MAX_TRIES,
     seed: int = 0,
-    workers: int = 8,
+    workers: int = 4,
     prior_spend_usd: float = 0.0,
     post: Callable = default_post,
     sleep: Callable = time.sleep,

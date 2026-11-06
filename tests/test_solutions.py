@@ -6,6 +6,7 @@ import requests
 
 from src.data.chem import build_prompt, filter_chem_rows, split_rows
 from src.data.solutions import (
+    MAX_BACKOFF_SECONDS,
     MAX_RETRIES,
     MAX_TRIES,
     MODEL,
@@ -23,6 +24,7 @@ from src.data.solutions import (
     project_full_run,
     prompt_hash,
     rescore_attempts,
+    retry_wait,
     save_solutions,
     summarize_attempts,
 )
@@ -250,6 +252,37 @@ def test_gives_up_after_too_many_retries(train, split, tmp_path):
     with pytest.raises(ApiError):
         run(train[:1], split, tmp_path / "log.jsonl", always_down)
     assert len(calls) == MAX_RETRIES + 1
+
+def test_waits_are_capped_and_cover_minutes_of_rate_limiting(monkeypatch):
+    monkeypatch.setattr("random.uniform", lambda low, high: high)
+    longest = sum(retry_wait(retry) for retry in range(1, MAX_RETRIES + 1))
+    assert max(retry_wait(retry) for retry in range(1, 50)) == MAX_BACKOFF_SECONDS
+    monkeypatch.setattr("random.uniform", lambda low, high: low)
+    shortest = sum(retry_wait(retry) for retry in range(1, MAX_RETRIES + 1))
+    assert shortest >= 5 * 60
+    assert longest <= 11 * 60
+
+def test_survives_a_long_streak_of_rate_limits(train, split, tmp_path):
+    outcomes = iter([(429, {"error": {"code": 429, "message": "Rate limited"}})] * MAX_RETRIES + [response()])
+    assert run(train[:1], split, tmp_path / "log.jsonl", lambda key, payload: next(outcomes))["solved"] == 1
+
+def test_rate_limit_error_keeps_the_explanation_and_saves_earlier_attempts(train, split, tmp_path):
+    log = tmp_path / "log.jsonl"
+    calls = []
+    body = {"error": {"code": 429, "message": "Provider returned error", "metadata": {"provider_name": "OpenAI", "raw": "Rate limit reached for gpt-4o"}}}
+
+    def limited_after_two(key, payload):
+        calls.append(payload)
+        return response() if len(calls) <= 2 else (429, body)
+
+    with pytest.raises(ApiError, match="Provider returned error | OpenAI | Rate limit reached") as error:
+        run(train[:3], split, log, limited_after_two, workers=1)
+    assert KEY not in str(error.value)
+    assert len(load_attempts(log)) == 2
+
+    api = FakeApi()
+    assert run(train[:3], split, log, api)["solved"] == 3
+    assert len(api.payloads) == 1
 
 @pytest.mark.parametrize("status", [400, 401, 402, 403])
 def test_permanent_errors_stop_right_away(train, split, tmp_path, status):

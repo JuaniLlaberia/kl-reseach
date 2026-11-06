@@ -165,3 +165,18 @@ Prompt wording change:
 - What: "Think step by step, then finish…" becomes "Reason briefly in plain text, then finish…", for GPT-4o, SFT, GRPO, the eval and KL. The same 50 rows are retested into a new log, chem_l3_gpt4o_attempts_v2.jsonl. The first test's $0.2757 counts towards the $15. The wording isn't frozen until this test passes, and credits are added only after it.
 - Why: Completion tokens make up nearly all the cost, and at the current length the full run is projected at $16.56-18.54. Shorter responses also make GRPO's generation cheaper, and plain text stops Qwen learning LaTeX from the targets. Chosen for cost and format, from a test with no KL or forgetting in it.
 - Affects: all chemistry prompts. The pass rate may fall on calculation tasks, which the retest will show. The first test's attempts are never used as solutions, as they came from another wording.
+
+50-prompt retest:
+- What: The same 50 rows with the shorter wording, from commit 020983a: 27 correct (0.54) against 30 (0.60) for the first test, rescored. Filling stayed at 4 of 6, molar weight went from 6 to 4 of 12, and molecular property from 4 to 3 of 11. Completion tokens fell from a mean of 507 to 344, with a maximum of 895, and cost per call from $0.0055 to $0.0039. No response was truncated or lacked a valid answer. The two tests cost $0.4698 in total. The projected full run is $13.01-16.10.
+- Why: To check the new wording before freezing it. The difference of 3 rows on 50 can't separate a small real drop from noise. Tokens fell by about a third, less than the half that was assumed.
+- Affects: the wording isn't frozen until the responses have been read.
+
+Prompt wording frozen:
+- What: The shorter wording is frozen, after reading 14 printed responses. No printed response was wrongly rejected. Of the 6 filling responses, 4 were correct with sound reasoning and 2 were really wrong. Answer lines were in plain text in 4 of the 6, and LaTeX still appears in some reasoning, which the matcher handles. Of the 6 correct MCQ responses printed, about 3 hold together, 2 don't match their own reasoning and 1 is a guess: one lists 4 acceptors and says 3, one concludes 4 rotatable bonds and answers D (2), and one estimates a peptide's weight without calculating it. All were from molecule structure and molar weight, as the printing limit was reached before the other tasks.
+- Why: Cost and format were the reasons for the wording, and neither shows a problem. The mismatches look like GPT-4o picking the closest option when its own result isn't among the choices, which is inferred from a few responses. Reasoning quality is too small a sample to compare between the wordings.
+- Affects: all chemistry prompts from here on. Any later change to the wording is a logged deviation. SFT targets stay unfiltered, as already decided, so some teach an answer that doesn't follow from the reasoning; this is reported as a limitation.
+
+OpenRouter rate limit:
+- What: The first full run stopped with status 429 after about 2 minutes of retries, starting from commit 020983a. The client now waits for about 5 to 10 minutes before giving up, with capped and randomized waits, runs 4 calls at once instead of 8, and reports OpenRouter's explanation in the error. Attempts already saved are kept and not repeated. The run stays on OpenAI only.
+- Why: OpenRouter listed the OpenAI route at 100% uptime, so this was throttling and not an outage. The cause isn't known, as the first error didn't include OpenRouter's explanation. A refused call isn't an attempt, so it isn't logged and doesn't affect any scored result.
+- Affects: how fast the run goes, not the solutions. Fewer calls at once should make it take longer.
