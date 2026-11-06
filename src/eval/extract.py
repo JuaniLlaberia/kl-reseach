@@ -8,7 +8,15 @@ ANSWER_LINE = re.compile(r"^[\W_]*answer[\W_]*?:(.*)$", re.IGNORECASE)
 # One letter and nothing else, allowing punctuation and markdown around it ("(B)", "**B**", "B.")
 MCQ_LETTER = re.compile(r"^[\W_]*([A-Da-d])[\W_]*$")
 # Longest first, so "-->" isn't read as "-" followed by "->"
-ARROWS = ("-->", "->", "⟶", "→")
+ARROWS = ("\\longrightarrow", "\\rightarrow", "\\to", "-->", "->", "⟶", "→")
+HYDRATE_DOTS = ("\\cdot", "·")
+# LaTeX delimiters and spacing, which carry no chemistry. A plain [ or ] does, as in Na[Al(OH)4]
+LATEX_NOISE = ("\\(", "\\)", "\\[", "\\]", "\\,", "\\;", "\\!")
+LATEX_SUBSCRIPT = re.compile(r"_\{?(\d+)\}?")
+LATEX_TEXT = re.compile(r"\\(?:text|mathrm|ce)\{([^{}]*)\}")
+# ^{+} and ^+ become {+}, the dataset's way of writing a charge
+LATEX_CHARGE = re.compile(r"\^(?:\{([^{}]*)\}|([+-]))")
+UNICODE_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 
 def find_answer_text(text: str) -> str | None:
     """
@@ -27,16 +35,26 @@ def find_answer_text(text: str) -> str | None:
 
 def normalize_equation(equation: str) -> str:
     """
-    Normalizes a chemical equation for comparison. It stays case-sensitive, as CO and Co are different.
+    Normalizes a chemical equation for comparison, so that only its chemistry counts and not how it's typeset.
+    It stays case-sensitive, as CO and Co are different.
 
     Args:
-        equation (str): Chemical equation.
+        equation (str): Chemical equation, in plain text, LaTeX or with Unicode subscripts.
     Returns:
-        The equation without whitespace or surrounding markdown, with "=" as its only arrow.
+        The equation in the dataset's plain form, without whitespace, with "=" as its only arrow.
     """
-    normalized = "".join(equation.split()).strip("*`$.")
+    normalized = "".join(equation.split())
+    for noise in LATEX_NOISE:
+        normalized = normalized.replace(noise, "")
+    # Subscripts go first, as \mathrm{H_{2}O} has braces inside the command
+    normalized = LATEX_SUBSCRIPT.sub(r"\1", normalized)
+    normalized = LATEX_TEXT.sub(r"\1", normalized)
+    normalized = LATEX_CHARGE.sub(lambda match: "{" + (match.group(1) or match.group(2)) + "}", normalized)
+    normalized = normalized.translate(UNICODE_SUBSCRIPTS).strip("*`$.")
     for arrow in ARROWS:
         normalized = normalized.replace(arrow, "=")
+    for dot in HYDRATE_DOTS:
+        normalized = normalized.replace(dot, "*")
     return normalized
 
 def extract_answer(text: str, answer_type: str) -> str | None:

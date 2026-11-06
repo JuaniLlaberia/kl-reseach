@@ -21,6 +21,8 @@ from src.data.solutions import (
     load_attempts,
     max_call_cost,
     project_full_run,
+    prompt_hash,
+    rescore_attempts,
     save_solutions,
     summarize_attempts,
 )
@@ -281,6 +283,42 @@ def test_truncated_response_is_rejected_even_with_a_right_answer(train, split, t
     run(train[:1], split, log, lambda key, payload: next(outcomes))
     assert [record["correct"] for record in load_attempts(log)] == [False, True]
 
+def write_stale_log(log, row, cost=COST):
+    """A paid attempt that an older version of the matcher scored as wrong."""
+    record = {
+        "row_id": row["row_id"], "attempt": 1, "seed": 1, "prompt_hash": prompt_hash(build_prompt(row)), "text": "Reasoning\nAnswer: B",
+        "finish_reason": "stop", "correct": False, "prompt_tokens": 100, "completion_tokens": 200, "cost_usd": cost,
+        "model": MODEL, "provider": PROVIDER_NAME, "temperature": 1.0, "max_tokens": MAX_TOKENS,
+    }
+    log.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+def test_a_matcher_fix_applies_to_paid_attempts_without_paying_again(train, split, tmp_path):
+    log = tmp_path / "log.jsonl"
+    write_stale_log(log, train[0])
+    original = log.read_text()
+    api = FakeApi()
+    result = run(train[:1], split, log, api)
+    assert api.payloads == []
+    assert result["solved"] == 1
+    assert log.read_text() == original
+
+def test_every_report_uses_the_current_matcher(train, split, tmp_path):
+    log = tmp_path / "log.jsonl"
+    write_stale_log(log, train[0])
+    attempts = load_attempts(log)
+    assert attempts[0]["correct"] is False
+    assert rescore_attempts(train[:1], attempts)[0]["correct"] is True
+    assert summarize_attempts(train[:1], attempts)["overall"]["first_try_pass_rate"] == 1.0
+    assert save_solutions(train[:1], attempts, tmp_path / "solutions.jsonl") == 1
+    assert project_full_run(train[:1], train[:1], attempts, 15.0)["pass_rates_by_task"] == {"molar": 1.0}
+
+def test_rescoring_keeps_truncated_attempts_wrong_and_other_rows_untouched(train):
+    truncated = {"row_id": train[0]["row_id"], "attempt": 1, "text": "Answer: B", "finish_reason": "length", "correct": True}
+    other = {"row_id": -1, "attempt": 1, "text": "Answer: B", "finish_reason": "stop", "correct": False}
+    rescored = rescore_attempts(train[:1], [truncated, other])
+    assert rescored[0]["correct"] is False
+    assert rescored[1] == other
+
 def test_seeds_are_unique_per_attempt():
     seeds = {attempt_seed(0, row_id, attempt) for row_id in range(50) for attempt in range(1, MAX_TRIES + 1)}
     assert len(seeds) == 50 * MAX_TRIES
@@ -319,7 +357,7 @@ def test_summary_counts_responses_without_a_valid_answer(train, split, tmp_path)
     assert summarize_attempts(train[:1], load_attempts(log))["no_valid_answer"] == 1
 
 def attempt_record(row_id, correct):
-    return {"row_id": row_id, "attempt": 1, "correct": correct, "cost_usd": 0.01}
+    return {"row_id": row_id, "attempt": 1, "text": "Answer: B" if correct else "Answer: A", "finish_reason": "stop", "correct": correct, "cost_usd": 0.01}
 
 def test_projection_uses_the_truncated_geometric_mean():
     train = filter_chem_rows([make_row(index) for index in range(100)])

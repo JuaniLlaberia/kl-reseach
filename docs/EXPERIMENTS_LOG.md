@@ -88,3 +88,80 @@ Diagnostic and 1.5B provenance:
 - What: Both runs record git_commit b3e8823, because the Colab clone hadn't pulled the later commits, and the cells that ran them weren't committed first. This breaks the rule above that later runs start from a committed notebook.
 - Why: Neither run was repeated. Both use the same run_retention function, and each results file records its model, revision, precision, chat template setting, generation settings, benchmarks, batch sizes and package versions.
 - Affects: these two runs only. From Stage 2 on, push first and pull on Colab before starting a run.
+
+## 06/11/26 - Start of Stage 2
+
+Authorship:
+- What: From Stage 2 on, Claude drafts the code and Juan reviews it in batches, with every choice that touches the math explained at review. This replaces the rule that Juan writes the core implementation. src/kl/ stays as Juan wrote it.
+- Why: Juan's decision while planning Stage 2, where it was presented as the fastest option.
+- Affects: src/data/, src/train/, src/eval/, tests and the Stage 2 notebook. CONTEXT.md and PLAN.md are updated.
+
+Pre-registration order:
+- What: A dated draft of the near-chance rule, the predictions and the Gate 1 science thresholds is committed before the mini-pilot runs. PLAN.md had the runs first.
+- Why: These choices shouldn't depend on Stage 2 results, and the mini-pilot would show KL and retention numbers before they were written down.
+- Affects: the Stage 2 order. The final pre-registration is still tagged by Nov 17.
+
+Chemistry rows and prompt:
+- What: SciKnowEval at commit 92ef969, Chemistry L3: all 2,400 rows, 2,100 mcq-4-choices and 300 filling. Prompts allow reasoning and require a final `Answer:` line, replacing the dataset's "without any explanation" instruction. The same text goes to GPT-4o, SFT, GRPO, the eval and KL. The wording is frozen once the 50-prompt test passes. Each family keeps its default system prompt on the local models.
+- Why: RL's Razor says only "Chemistry L-3 subset", so no rows are filtered out. Direct answers would give responses of about 2 tokens, leaving per-token KL with few positions and GRPO little to vary. RL's Razor's eval matches the final answer and ignores reasoning, which suggests this format, but its prompt isn't stated. Chosen from row counts and the dataset's text, before any model ran on this task.
+- Affects: all chemistry training, eval and KL. Accuracy is reported overall and per type. Departs from the dataset's instruction.
+
+Chemistry split:
+- What: 1,800 train and 600 held-out, seeded and stratified by subtask, with repeated questions kept on one side. The 500 KL prompts are drawn from held-out, stratified the same way. Saved to data/splits/chem_l3.json.
+- Why: RL's Razor doesn't state a split, and the email to its authors is unanswered so far. Five questions repeat with different choices, which would otherwise leak across the split. Held-out must hold the 500 KL prompts; accuracy on 600 has a CI of about ±4 points.
+- Affects: all chemistry runs. If the authors reply with their split, raise it before the Nov 17 freeze.
+
+GPT-4o solutions:
+- What: openai/gpt-4o-2024-08-06 through OpenRouter, with OpenAI as the only provider and fallbacks off, temperature 1.0 and no system prompt. Train rows only, up to 16 tries, one correct kept, no answer key in the prompt. Tries run in breadth-first rounds, with a hard stop at $15. Every attempt is logged. If rows stay unsolved, SFT and GRPO both train on the same solved rows.
+- Why: A dated snapshot can't change during the study. To Claude's knowledge it's what the openai/gpt-4o alias pointed to when RL's Razor was written; the paper doesn't name one. Juan has $15 planned for this. Breadth-first rounds spread a limited budget across prompts rather than spending it on a few hard ones. A shared set of rows means the two methods see the same prompts.
+- Affects: the SFT data. RL's Razor solved its whole dataset, so any shortfall is a deviation and is shown to Juan before the full run. A four-choice row can pass by chance within 16 tries, so the attempt number is saved per row and the first-try rate reported, with no filtering.
+
+Mini-pilot checkpoints:
+- What: The Reasoning SLM models, with Qwen/Qwen2.5-0.5B as the base and 500 GSM8K test prompts for KL. Drive no longer has the merged models, only the adapters, so they're rebuilt once: sft-r16-step400 merged into the base, then grpo_full-step400 merged into that result, in bf16 as the project's merge_adapter did. grpo_smoke isn't used. peft is installed only for this merge, in its own runtime, and stays out of requirements.txt. The mini-pilot uses the chat template, as the pilot will. TinyForge was considered and not used.
+- Why: TinyForge's Hub repos have no GRPO checkpoint, and its custom format would need an adapter nothing else uses. Once merged, the Reasoning SLM models are ordinary Transformers models and should load with the existing KL and retention code. A separate runtime keeps peft out of the environment used for every run. Each merge is checked by confirming that the weights changed, not by reproducing the old scores, as this is only a pipeline check. They were trained with LoRA and then merged, GRPO was trained on top of SFT, and they trained on `Question: … Answer:` prompts, which is fine for a pipeline check. Their KL values aren't comparable to the earlier "KL about 0.13".
+- Affects: the mini-pilot only. These are pipeline checks, not evidence, so the notebook has no forgetting-vs-KL plot or fit.
+
+Trainer settings:
+- What: GRPO sets loss_type="dr_grpo", scale_rewards=False and beta=0.0 explicitly, with no format reward. Both trainers load the model in fp32 before building the trainer, train under bf16 autocast and save in fp32.
+- Why: TRL 1.17.1 defaults to loss_type="dapo" and scale_rewards="group", which isn't Dr. GRPO. TRL's docs say a model passed by path takes its dtype from the model config, and Qwen's declares bf16; a weight of 0.02 has a bf16 spacing of about 1.2e-4, so Adam steps near lr 1e-5 would round away. This risk comes from reading the docs and hasn't been run, so a test covers it. Saving in bf16 would round the weights being measured.
+- Affects: all training. fp32 checkpoints are about 2 GB for 0.5B and 6 GB for 1.5B, which feeds the storage decision.
+
+Stage 2 compute limit:
+- What: Stage 2 spends at most 50 Colab units. The unmeasured estimate is about 34, of which only the retention costs come from measured runs.
+- Why: Juan's limit. GRPO's seconds per step is the main unknown.
+- Affects: the Stage 2 notebook. A section running well over its estimate stops, and it's raised before spending more.
+
+Near-chance rule:
+- What: A benchmark is clear of chance if the 95% CI lower bound of its base score is at least 0.05 above its chance level: hellaswag acc_norm 0.25, truthfulqa_mc2 0.4484, winogrande 0.50, mmlu 0.25, ifeval prompt_level_strict_acc 0 and humaneval_instruct pass@1 0. Flagged benchmarks are left out of the primary forgetting score and reported separately. The flag is set per model from its base score, before any training on that model, and doesn't change afterwards. On current base scores it flags truthfulqa_mc2 and winogrande for 0.5B, and truthfulqa_mc2 for 1.5B.
+- Why: Chance differs by benchmark, so no single score threshold works. The 0.05 margin is reused from the pilot model rule, because choosing a new one with the Qwen scores in view could decide which benchmarks count. HumanEval's chance level is close to 0. IFEval's is above 0 and unknown, so 0 is a lenient floor, which still catches a model with no room to fall. acc_norm is a new choice, not stated earlier in the repo; the pilot model rule stays on hellaswag acc, and HellaSwag clears on both metrics for both models. Set from Stage 1 base scores only, before any Stage 2 run.
+- Affects: the forgetting score and all retention reporting. Benchmark sets can differ by family, which has to be handled when the forgetting score is defined.
+
+Pre-registration draft:
+- What: docs/PREREG.md now holds the predictions, the Gate 1 science thresholds, the primary KL (kl_exact_fwd_base_mean_token) and the forgetting score (mean drop over a model's unflagged benchmarks, negative drops kept). Claude proposed these values and Juan accepted them; the predictions and the go, reshape or stop rule are Juan's to answer for. Written before any Stage 2 run. The draft tag covers these sections, widening the earlier plan, which covered only the near-chance rule, the predictions and the Gate 1 thresholds.
+- Why: The mini-pilot shows KL variants and retention scores, which could sway the primary metric if it were still open. A missing gap doesn't stop the study on its own, as whether KL predicts forgetting is still testable, and a pre-registered null is a real result. Only one reshape is allowed, so the setup can't be changed until a preferred result appears.
+- Affects: Gate 1, Stage 6 and all analyses. The R² prediction depends on the curve form, which is still open in Part 2 and has to be set by the final tag without looking at any fit.
+
+50-prompt test:
+- What: One GPT-4o first try on 50 train rows: 26 correct (0.52), with MCQ at 26 of 44 and filling at 0 of 6. It cost $0.2757, or $0.0055 per call, with a mean of 507 completion tokens and a maximum of 824. No response was truncated or lacked a valid answer, and all 50 came from openai/gpt-4o-2024-08-06 on OpenAI. The projected full run is $34.54-36.53, against the $15 limit, so it isn't approved and the prompt wording isn't frozen.
+- Why: Required before the full run. The earlier estimate of $0.003 per call assumed about 250 completion tokens, about half of what was measured. Filling makes up as much as $19.85 of the projection, because 0 of 6 counts as 16 tries on all 225 train rows, and 6 rows can't show whether its true rate is really near 0.
+- Affects: the solutions run, which waits on the filling responses and a decision on the prompt length. These attempts count towards the $15.
+
+50-prompt test provenance:
+- What: The test ran from commit 80fe16d with data/splits/chem_l3.json uploaded to Colab by hand, as the file wasn't committed. This breaks the rule that runs start from pushed code.
+- Why: The test wasn't repeated. The notebook only continues if the split equals what split_rows generates from the pinned dataset, and it passed, so the file's content isn't in doubt.
+- Affects: this test only. The split has to be committed and pushed before the full run.
+
+Filling matcher:
+- What: normalize_equation now also removes LaTeX (delimiters, \text, \mathrm, \ce, subscripts, arrows, ^ charges) and Unicode subscripts, and treats a hydrate dot as `*`. Saved attempts are rescored with the current is_correct whenever they're read, and the log itself is never rewritten. Rescored, the 50-prompt test is 30 of 50 correct (0.60), with filling at 4 of 6. The projected full run falls to $16.56-18.54, of which filling is about $1.86.
+- Why: 4 of the 6 filling answers were correct but rejected for their typesetting, which was a bug in the matcher, found by reading the responses. The other 2 were really wrong and stay wrong; both cases are now tests. About 15 of the 300 filling answers contain charges, written inconsistently in the dataset (Mg{+2}, Al{3+}, Al3{+}), so some may stay unsolved. No single rule matches them all, so they're left as they are. Coefficients still have to match the dataset's answer.
+- Affects: solution acceptance, the GRPO reward and the eval, which all use this function. Changed before any training or KL.
+
+Solution quality:
+- What: Of the 3 correct MCQ responses seen in the test, one reasoned its way to 4 rotatable bonds and then answered D, which was 2. Another rambled to its choice with no real derivation. Only the final answer is checked, so both count as solved.
+- Why: This is a direct result of rejection sampling, which RL's Razor also uses. These were three responses from one task, so they don't show how common it is.
+- Affects: the SFT targets, which can teach a final answer that doesn't follow from the reasoning. The attempt number is saved per row. Juan decided not to filter, to stay with RL's Razor's procedure, as any quality filter would be a new choice the paper doesn't have. It's reported as a limitation.
+
+Prompt wording change:
+- What: "Think step by step, then finish…" becomes "Reason briefly in plain text, then finish…", for GPT-4o, SFT, GRPO, the eval and KL. The same 50 rows are retested into a new log, chem_l3_gpt4o_attempts_v2.jsonl. The first test's $0.2757 counts towards the $15. The wording isn't frozen until this test passes, and credits are added only after it.
+- Why: Completion tokens make up nearly all the cost, and at the current length the full run is projected at $16.56-18.54. Shorter responses also make GRPO's generation cheaper, and plain text stops Qwen learning LaTeX from the targets. Chosen for cost and format, from a test with no KL or forgetting in it.
+- Affects: all chemistry prompts. The pass rate may fall on calculation tasks, which the retest will show. The first test's attempts are never used as solutions, as they came from another wording.

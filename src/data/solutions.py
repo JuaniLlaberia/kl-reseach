@@ -187,6 +187,26 @@ def load_attempts(log_path: Path) -> list[dict]:
             file.truncate(valid_bytes)
     return attempts
 
+def rescore_attempts(rows: list[dict], attempts: list[dict]) -> list[dict]:
+    """
+    Scores saved attempts with the current is_correct, so a fix to the extraction applies to calls already paid for.
+    The log itself is never rewritten.
+
+    Args:
+        rows (list[dict]): Rows the attempts were for.
+        attempts (list[dict]): Records from the log. Records of other rows are returned unchanged.
+    Returns:
+        The records, with the correct field up to date.
+    """
+    by_id = {row["row_id"]: row for row in rows}
+    return [
+        {
+            **record,
+            "correct": is_correct(record["text"], get_gold(by_id[record["row_id"]]), by_id[record["row_id"]]["type"], record["finish_reason"] != "stop"),
+        } if record["row_id"] in by_id else record
+        for record in attempts
+    ]
+
 def check_train_only(rows: list[dict], split: dict) -> None:
     """
     Fails unless every row is on the train side of the split, so no held-out row ever reaches GPT-4o.
@@ -241,7 +261,7 @@ def generate_solutions(
         raise ValueError(f"max_tries can't be above {MAX_TRIES}.")
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    attempts = load_attempts(log_path)
+    attempts = rescore_attempts(rows, load_attempts(log_path))
     prompts = {row["row_id"]: build_prompt(row) for row in rows}
 
     tries = Counter()
@@ -358,7 +378,7 @@ def save_solutions(rows: list[dict], attempts: list[dict], out_path: Path) -> in
     Returns:
         The number of solutions written.
     """
-    kept = best_attempts(attempts)
+    kept = best_attempts(rescore_attempts(rows, attempts))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = out_path.with_suffix(".tmp")
     with open(temporary, "w", encoding="utf-8") as file:
@@ -399,6 +419,7 @@ def summarize_attempts(rows: list[dict], attempts: list[dict]) -> dict:
     Returns:
         Calls, money, tokens, truncation, responses with no valid answer, and the first-try and solved shares, overall and per task and type.
     """
+    attempts = rescore_attempts(rows, attempts)
     kept = best_attempts(attempts)
     types = {row["row_id"]: row["type"] for row in rows}
     first_tries = {record["row_id"]: record["correct"] for record in attempts if record["attempt"] == 1}
@@ -460,6 +481,7 @@ def project_full_run(train_rows: list[dict], test_rows: list[dict], test_attempt
     Returns:
         The cost per call, the pass rates, the low and high expected cost, the cost of using every try, and the calls the budget can pay for.
     """
+    test_attempts = rescore_attempts(test_rows, test_attempts)
     first_tries = {record["row_id"]: record["correct"] for record in test_attempts if record["attempt"] == 1}
     if not first_tries:
         raise ValueError("The test has no first tries.")

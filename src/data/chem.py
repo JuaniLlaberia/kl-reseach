@@ -15,7 +15,7 @@ N_HELDOUT = 600
 N_KL = 500
 SPLIT_SEED = 0
 
-REASONING = "Think step by step, then finish with a final line in exactly this form:"
+REASONING = "Reason briefly in plain text, then finish with a final line in exactly this form:"
 
 def load_chem_rows() -> list[dict]:
     """

@@ -50,7 +50,7 @@ This week ends with a frozen pilot spec and written predictions. If time runs sh
 
 **Read** (in this order; cut from the bottom)
 
-- [ ] Mechanistic origins (RL forgot less despite larger KL)
+- [x] Mechanistic origins (RL forgot less despite larger KL)
 - [ ] Context distillation, §6.2
 - [ ] ES study, §A.4.1
 - [ ] Lai et al.
@@ -70,6 +70,10 @@ This week ends with a frozen pilot spec and written predictions. If time runs sh
 - [ ] SFT: loss on response tokens only, max length set
 - [ ] GRPO: Dr. GRPO loss, binary reward, no format reward, temperature 1.0, max completion length set
 
+**Draft the pre-registration first**
+
+- [ ] Commit a dated draft of the near-chance rule, predictions and Gate 1 science thresholds, before the mini-pilot runs
+
 **Runs** (pipeline checks, not evidence)
 
 - [ ] Zero-training mini-pilot: retention and KL on your Reasoning SLM checkpoints (base, SFT, GRPO). Log anything that tempts you to change the metric
@@ -81,7 +85,7 @@ This week ends with a frozen pilot spec and written predictions. If time runs sh
 
 - [ ] Pilot model: 0.5B or 1.5B
 - [ ] Which checkpoints count as points: final only, or every N steps
-- [ ] Near-chance rule as a number
+- [ ] Near-chance rule: chance level per benchmark, plus the margin and what happens to flagged benchmarks
 - [ ] GRPO group size and prompts per step
 - [ ] Checkpoint storage: Hugging Face repo, Drive, or compute every KL variant and then delete
 - [ ] Gate 1 criteria as numbers
@@ -206,4 +210,4 @@ The code and results go public with the preprint, so anyone can check the fits.
 - **Same setup for every checkpoint:** harness version, prompts, chat template, KL prompts and precision.
 - **Scope:** add a family, task or method only when the pilot timings show it fits the budget.
 - **Reading notes:** send them after each paper (claim, KL as measured, forgetting as measured, pilot implications, questions).
-- **Code:** you write the core implementation; I help with design, review and debugging.
+- **Code:** from Stage 2 on, Claude drafts the code and you review it in batches, with every choice that touches the math explained.

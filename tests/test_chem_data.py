@@ -21,7 +21,7 @@ from src.data.chem import (
     stratified_sample,
 )
 from src.data.solutions import MAX_INPUT_TOKENS
-from src.eval.extract import FILLING, MCQ, is_correct
+from src.eval.extract import FILLING, MCQ, is_correct, normalize_equation
 
 def make_raw_row(index: int, subtask: str, row_type: str = MCQ, question: str | None = None, domain: str = "Chemistry", level: str = "L3") -> dict:
     is_mcq = row_type == MCQ
@@ -126,6 +126,7 @@ def test_mcq_prompt_has_choices_and_no_answer(rows):
     for label, text in zip(row["choices"]["label"], row["choices"]["text"]):
         assert f"{label}. {text}" in prompt
     assert prompt.endswith("Answer: <letter>")
+    assert "Reason briefly in plain text, then finish with a final line in exactly this form:" in prompt
     assert "without any explanation" not in prompt
 
 def test_prompts_never_contain_the_answer_key_field(rows):
@@ -153,5 +154,8 @@ def test_real_dataset_matches_the_log():
     assert (len(split["train"]), len(split["heldout"]), len(split["kl"])) == (2400 - N_HELDOUT, N_HELDOUT, N_KL)
     assert split == load_split(Path(__file__).parents[1] / "data" / "splits" / "chem_l3.json")
     assert all(is_correct(f"Answer: {get_gold(row)}", get_gold(row), row["type"]) for row in real_rows)
+    # Normalizing must never make two different dataset answers look the same
+    golds = {row["answer"] for row in real_rows if row["type"] == FILLING}
+    assert len({normalize_equation(gold) for gold in golds}) == len(golds)
     # Each token holds at least one character, so this keeps the budget reservation valid
     assert max(len(build_prompt(row)) for row in real_rows) < MAX_INPUT_TOKENS

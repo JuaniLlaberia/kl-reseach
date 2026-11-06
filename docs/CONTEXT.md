@@ -6,7 +6,7 @@ Tests whether the KL divergence between a fine-tuned model and its base, measure
 Each module folder has its own CLAUDE.md with its spec (`src/kl/`, later `src/train/` and `src/eval/`).
 
 ## Ground rules
-- I (Juan) write the core implementation. Help with design, tests, review and debugging. When you change math code, explain the change; don't silently rewrite it.
+- From Stage 2 on, Claude drafts the code and I (Juan) review it in batches. Explain every choice that touches the math. `src/kl/` is my code: when you change it or any other math code, explain the change; don't silently rewrite it.
 - The primary metric, the KL variant names, the data splits and the analyses are pre-registered in `docs/PREREG.md` (frozen 17 Nov 2026). Never change them unless I ask. If a change would affect them, stop and say so.
 - Never choose KL variants, checkpoints or analyses based on how well they fit.
 - No LoRA. No KL penalty in GRPO training (coefficient 0, Dr. GRPO loss).
@@ -18,11 +18,14 @@ Each module folder has its own CLAUDE.md with its spec (`src/kl/`, later `src/tr
 configs/       one YAML per training run, named like qwen05_chem_sft_lr3e-5_s0.yaml
 results/<run>/ one JSON per checkpoint (final.json, step500.json)
 data/splits/   seeded train/held-out row IDs per task
+data/solutions/ GPT-4o solutions and the log of every attempt
 docs/PREREG.md frozen pre-registration (source of truth for every spec)
 docs/EXPERIMENTS_LOG.md      append-only lab log; never edit old entries
+notebooks/     one Colab notebook per stage; every run happens here
+src/data/      task data, prompts and GPT-4o solutions
 src/kl/        KL module
 src/train/     SFT and GRPO trainers
-src/eval/      new-task eval and retention suite
+src/eval/      answer extraction, new-task eval and retention suite
 tests/         pytest
 ```
 
@@ -33,5 +36,7 @@ tests/         pytest
 - **W&B** is for training curves. At `wandb.init`, log the config, git commit and GPU type, and tag the run with stage, family, task and method.
 
 ## Commands
-- Tests: `pytest tests/`
-- (add training, eval and KL commands here as they exist)
+- Tests (CPU, no network, no downloads): `pytest tests/`
+- GPU tests (Colab): `pytest tests/ -m gpu`
+- Tests that download real data: `pytest tests/ -m network`
+- Training, eval and KL all run from `notebooks/`, starting from a pushed commit.
