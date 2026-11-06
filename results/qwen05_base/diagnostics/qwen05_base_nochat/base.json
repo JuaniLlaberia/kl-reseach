@@ -1,0 +1,115 @@
+{
+  "run": "qwen05_base_nochat",
+  "checkpoint": "base",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "dtype": "float32",
+  "chat_template": false,
+  "gen_kwargs": {
+    "repetition_penalty": 1.0
+  },
+  "eval_runs": [
+    {
+      "task": "hellaswag",
+      "num_fewshot": 0,
+      "batch_size": 8
+    },
+    {
+      "task": "truthfulqa_mc2",
+      "num_fewshot": 0,
+      "batch_size": 8
+    },
+    {
+      "task": "winogrande",
+      "num_fewshot": 5,
+      "batch_size": 8
+    }
+  ],
+  "limit": null,
+  "git_commit": "b3e882333f4c234fcfd7a57fead064a977930c29",
+  "harness_version": "0.4.13",
+  "torch": "2.15.0+cu132",
+  "transformers": "5.22.1",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "retention": {
+    "hellaswag": {
+      "minutes": 2.1066812479666623,
+      "scores": {
+        "acc": {
+          "mean": 0.4063931487751444,
+          "ci95": [
+            0.39702997410874324,
+            0.4160525791674965
+          ],
+          "n": 10042
+        },
+        "acc_norm": {
+          "mean": 0.5244971121290579,
+          "ci95": [
+            0.5146385182234615,
+            0.5342561242780323
+          ],
+          "n": 10042
+        }
+      },
+      "harness_results": {
+        "hellaswag": {
+          "name": "hellaswag",
+          "alias": "hellaswag",
+          "sample_len": 10042,
+          "acc,none": 0.4063931487751444,
+          "acc_stderr,none": 0.004901558132335639,
+          "acc_norm,none": 0.5244971121290579,
+          "acc_norm_stderr,none": 0.004983788992680871
+        }
+      },
+      "harness_groups": {}
+    },
+    "truthfulqa_mc2": {
+      "minutes": 0.5692551224166588,
+      "scores": {
+        "acc": {
+          "mean": 0.41840238002201896,
+          "ci95": [
+            0.39044315238980243,
+            0.4466638469019595
+          ],
+          "n": 817
+        }
+      },
+      "harness_results": {
+        "truthfulqa_mc2": {
+          "name": "truthfulqa_mc2",
+          "alias": "truthfulqa_mc2",
+          "sample_len": 817,
+          "acc,none": 0.4184023800220186,
+          "acc_stderr,none": 0.014584789694029581
+        }
+      },
+      "harness_groups": {}
+    },
+    "winogrande": {
+      "minutes": 0.24818912571666563,
+      "scores": {
+        "acc": {
+          "mean": 0.5422257300710339,
+          "ci95": [
+            0.5153906866614049,
+            0.5698500394632992
+          ],
+          "n": 1267
+        }
+      },
+      "harness_results": {
+        "winogrande": {
+          "name": "winogrande",
+          "alias": "winogrande",
+          "sample_len": 1267,
+          "acc,none": 0.5422257300710339,
+          "acc_stderr,none": 0.014002284504422372
+        }
+      },
+      "harness_groups": {}
+    }
+  }
+}
