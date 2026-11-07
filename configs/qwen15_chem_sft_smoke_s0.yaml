@@ -1,0 +1,18 @@
+# Smoke run. A pipeline check, not a pre-registered choice.
+run: qwen15_chem_sft_smoke_s0
+method: sft
+model: Qwen/Qwen2.5-1.5B-Instruct
+revision: 989aa7980e4cf806f80c7fef2b1adb7bc71aa306
+seed: 0
+learning_rate: 3.0e-5
+warmup_steps: 50
+max_steps: 60
+weight_decay: 0.0
+max_grad_norm: 1.0
+optim: adamw_bnb_8bit
+bf16: true
+gradient_checkpointing: true
+logging_steps: 5
+batch_size: 16
+micro_batch_size: 16
+max_length: 2048

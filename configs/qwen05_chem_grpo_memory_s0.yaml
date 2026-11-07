@@ -1,0 +1,20 @@
+# Memory and timing test at the paper's group size of 64 by 8 prompts. A pipeline check, not a pre-registered choice.
+run: qwen05_chem_grpo_memory_s0
+method: grpo
+model: Qwen/Qwen2.5-0.5B-Instruct
+revision: 7ae557604adf67be50417f59c2c2f167def9a775
+seed: 0
+learning_rate: 3.0e-5
+warmup_steps: 1
+max_steps: 5
+weight_decay: 0.0
+max_grad_norm: 1.0
+optim: adamw_bnb_8bit
+bf16: true
+gradient_checkpointing: true
+logging_steps: 1
+group_size: 64
+prompts_per_step: 8
+loss_batch_size: 8
+generation_chunk_size: 128
+max_completion_length: 512
