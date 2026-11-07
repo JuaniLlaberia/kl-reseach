@@ -20,6 +20,7 @@ from src.data.solutions import (
     expected_tries,
     generate_solutions,
     load_attempts,
+    load_solved_rows,
     max_call_cost,
     project_full_run,
     prompt_hash,
@@ -420,3 +421,37 @@ def test_projection_counts_an_unseen_task_as_all_tries():
     projection = project_full_run(train, train[:1], [attempt_record(train[0]["row_id"], True)], budget_usd=0.01)
     assert projection["pass_rates_by_task"]["unseen"] == 0.0
     assert projection["expected_cost_high_usd"] == pytest.approx((1 + 16) * 0.01)
+
+def solution_line(row, text="Answer: B", **changes):
+    return json.dumps({"row_id": row["row_id"], "question_hash": row["question_hash"], "attempt": 2, "solution": text, **changes}) + "\n"
+
+def solved_fixture_rows():
+    return [dict(row, answerKey="B", type="mcq-4-choices") for row in filter_chem_rows([make_row(index) for index in range(3)])]
+
+def test_load_solved_rows_adds_the_solution_and_sorts(tmp_path):
+    rows = solved_fixture_rows()
+    path = tmp_path / "solutions.jsonl"
+    path.write_text(solution_line(rows[2]) + solution_line(rows[0]))
+    solved = load_solved_rows(rows, path)
+    assert [row["row_id"] for row in solved] == [rows[0]["row_id"], rows[2]["row_id"]]
+    assert solved[0]["solution"] == "Answer: B"
+    assert solved[0]["attempt"] == 2
+
+@pytest.mark.parametrize("line_changes, message", [
+    ({"question_hash": "other"}, "doesn't match"),
+    ({"row_id": 999999}, "doesn't match"),
+    ({"solution": "Answer: C"}, "isn't correct"),
+])
+def test_load_solved_rows_refuses_a_file_that_does_not_match(tmp_path, line_changes, message):
+    rows = solved_fixture_rows()
+    path = tmp_path / "solutions.jsonl"
+    path.write_text(solution_line(rows[0], **{key: value for key, value in line_changes.items() if key != "solution"}, text=line_changes.get("solution", "Answer: B")))
+    with pytest.raises(ValueError, match=message):
+        load_solved_rows(rows, path)
+
+def test_load_solved_rows_refuses_two_solutions_for_a_row(tmp_path):
+    rows = solved_fixture_rows()
+    path = tmp_path / "solutions.jsonl"
+    path.write_text(solution_line(rows[0]) * 2)
+    with pytest.raises(ValueError, match="more than one"):
+        load_solved_rows(rows, path)

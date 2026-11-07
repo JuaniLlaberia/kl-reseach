@@ -57,11 +57,11 @@ This week ends with a frozen pilot spec and written predictions. If time runs sh
 
 **Chemistry data**
 
-- [ ] Filter SciKnowEval to Chemistry L-3; record the row count and the `type` values
-- [ ] Seeded train / held-out split; save the row IDs to the repo
-- [ ] Choose 500 held-out prompts for KL
-- [ ] GPT-4o test on 50 prompts: tokens per call and first-try pass rate; recompute the cost
-- [ ] GPT-4o solutions for the train split only. Rejection sampling, up to 16 tries, one correct kept, no answer key in the prompt
+- [x] Filter SciKnowEval to Chemistry L-3; record the row count and the `type` values
+- [x] Seeded train / held-out split; save the row IDs to the repo
+- [x] Choose 500 held-out prompts for KL
+- [x] GPT-4o test on 50 prompts: tokens per call and first-try pass rate; recompute the cost
+- [x] GPT-4o solutions for the train split only. Rejection sampling, up to 16 tries, one correct kept, no answer key in the prompt
 - [ ] Log the snapshot, system prompt, temperature, max tokens and share of prompts solved
 - [ ] One answer-extraction function, shared by the GRPO reward and the eval, with unit tests on awkward outputs
 

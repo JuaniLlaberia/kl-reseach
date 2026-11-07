@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from utils.env import check_pins, check_pushed, read_pins
+from utils.env import check_pins, check_pushed, check_tag, read_pins
 
 def run_git(repo, *args):
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com", *args], check=True, capture_output=True)
@@ -57,3 +57,16 @@ def test_requests_and_yaml_come_with_the_pinned_packages():
     requirements = " ".join(metadata.requires("wandb")).lower()
     assert "requests" in requirements
     assert "pyyaml" in requirements
+
+def test_check_tag_fails_until_the_tag_is_on_the_remote(tmp_path):
+    remote = tmp_path / "remote.git"
+    local = tmp_path / "local"
+    run = lambda *args, cwd=None: subprocess.run(args, cwd=cwd, check=True, capture_output=True)
+    run("git", "init", "--bare", str(remote))
+    run("git", "clone", str(remote), str(local))
+    run("git", "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "--allow-empty", "-m", "first", cwd=local)
+    run("git", "tag", "prereg-draft", cwd=local)
+    with pytest.raises(RuntimeError, match="prereg-draft"):
+        check_tag(local, "prereg-draft")
+    run("git", "push", "origin", "prereg-draft", cwd=local)
+    check_tag(local, "prereg-draft")

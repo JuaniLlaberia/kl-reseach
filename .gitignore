@@ -18,3 +18,6 @@ wandb/
 *.pt
 *.pth
 *.ckpt
+
+# GPT-4o text stays on Drive until the terms on sharing it are checked (the summary stays tracked)
+data/solutions/*.jsonl

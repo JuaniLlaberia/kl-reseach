@@ -1,0 +1,73 @@
+{
+  "calls": 3746,
+  "cost_usd": 14.942745,
+  "cost_per_call_usd": 0.003988986919380673,
+  "completion_tokens_mean": 354.5445808862787,
+  "completion_tokens_p99": 687,
+  "completion_tokens_max": 1007,
+  "truncated": 1,
+  "no_valid_answer": 53,
+  "models": {
+    "openai/gpt-4o-2024-08-06": 3746
+  },
+  "providers": {
+    "OpenAI": 3746
+  },
+  "overall": {
+    "rows": 1800,
+    "first_try_rows": 1800,
+    "first_try_pass_rate": 0.5494444444444444,
+    "solved": 1381
+  },
+  "groups": {
+    "task:balancing_chemical_equation": {
+      "rows": 225,
+      "first_try_rows": 225,
+      "first_try_pass_rate": 0.49777777777777776,
+      "solved": 138
+    },
+    "task:molar_weight_calculation": {
+      "rows": 450,
+      "first_try_rows": 450,
+      "first_try_pass_rate": 0.3688888888888889,
+      "solved": 300
+    },
+    "task:molecular_property_prediction": {
+      "rows": 375,
+      "first_try_rows": 375,
+      "first_try_pass_rate": 0.41333333333333333,
+      "solved": 278
+    },
+    "task:molecule_structure_prediction": {
+      "rows": 225,
+      "first_try_rows": 225,
+      "first_try_pass_rate": 0.4266666666666667,
+      "solved": 153
+    },
+    "task:reaction_prediction": {
+      "rows": 300,
+      "first_try_rows": 300,
+      "first_try_pass_rate": 0.9066666666666666,
+      "solved": 298
+    },
+    "task:retrosynthesis": {
+      "rows": 225,
+      "first_try_rows": 225,
+      "first_try_pass_rate": 0.8355555555555556,
+      "solved": 214
+    },
+    "type:filling": {
+      "rows": 225,
+      "first_try_rows": 225,
+      "first_try_pass_rate": 0.49777777777777776,
+      "solved": 138
+    },
+    "type:mcq-4-choices": {
+      "rows": 1575,
+      "first_try_rows": 1575,
+      "first_try_pass_rate": 0.5568253968253968,
+      "solved": 1243
+    }
+  },
+  "commit": "ef28272e2fe18a156f2b4b272a24a0961f727ea0"
+}

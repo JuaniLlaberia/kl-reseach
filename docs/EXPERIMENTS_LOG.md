@@ -180,3 +180,48 @@ OpenRouter rate limit:
 - What: The first full run stopped with status 429 after about 2 minutes of retries, starting from commit 020983a. The client now waits for about 5 to 10 minutes before giving up, with capped and randomized waits, runs 4 calls at once instead of 8, and reports OpenRouter's explanation in the error. Attempts already saved are kept and not repeated. The run stays on OpenAI only.
 - Why: OpenRouter listed the OpenAI route at 100% uptime, so this was throttling and not an outage. The cause isn't known, as the first error didn't include OpenRouter's explanation. A refused call isn't an attempt, so it isn't logged and doesn't affect any scored result.
 - Affects: how fast the run goes, not the solutions. Fewer calls at once should make it take longer.
+
+GPT-4o solutions run:
+- What: Stopped at the budget during round 4, at commit ef28272, with max_tokens 1024. Solved 1,381 of 1,800 train rows (76.7%): 989 on try 1, 220 on try 2, 104 on try 3, 68 on try 4. No row got more than 4 tries, so the limit of 16 was never reached; 402 unsolved rows got 4 tries and 17 got 3. Solved per task: reaction prediction 298/300, retrosynthesis 214/225, molecular property 278/375, molecule structure 153/225, molar weight 300/450, balancing equations 138/225. All 3,746 calls used the requested model and provider, none touched held-out rows, 1 was truncated and 53 had no valid answer.
+- Why: The projection of 1,650-1,790 rows at $15 was wrong, because it assumed retries pass about as often as first tries. Pass rates among the rows tried in each round were 54.9%, 27.1%, 18.3% and 14.5%, so the limit wasn't raised: the extra rows would have cost an estimated $7 or more, and later passes are often lucky. Juan chose to stop at $15.
+- Affects: SFT and GRPO both train on the same 1,381 rows, so one pass has fewer steps than with 1,800. Training leans towards easier rows: reaction prediction and retrosynthesis go from 29% of the train rows to 37% of the solved rows. Held-out rows stay unfiltered. 392 solutions (28%) passed after try 1, and the attempt number is saved per row. Comparisons with RL's Razor's R² are weaker.
+
+Solutions spending and repeated calls:
+- What: The total in the logs is $15.22 ($14.94 in the attempts log plus $0.28 from the first test), $0.22 over the $15 limit. The OpenRouter dashboard shows $15.3, as read by Juan. 64 row and attempt pairs in round 2 were called twice, at a cost of $0.29, and 10 more calls went to rows already solved by one of those repeats. Their second copies sit together in the log, at lines 2,553 to 2,675.
+- Why: The budget check only counts calls made by the running cell. The repeats match the gap between the run's own total and the log, so a second writer is the explanation. It was most likely the earlier run still working when the run was resumed, which is inferred, as the log has no timestamps. The remaining gap of about $0.08 to the dashboard is unexplained; a rounded dashboard figure or calls that were paid for but never logged could account for it.
+- Affects: spending, and very little else. Each row keeps one solution, the first correct one in log order, and the file was checked: 1,381 unique train rows, all correct under is_correct. For the 64 repeated rows, attempt 2 may have been the third draw, so a few had one extra chance to pass. The repeats share a seed but returned different text, so the seed doesn't reproduce a response; every response used is saved. No more GPT-4o calls are planned, so the budget check stays as it is.
+
+RL's Razor chemistry annotations:
+- What: Appendix B.1 says that for Science Q&A "we applied the same procedure with GPT-4o, obtaining correct annotations for the entire dataset". The procedure is stated for DeepSeek R1 on math: up to 16 responses per prompt, keeping one that matched the correct final answer, which gave valid annotations for 96% of that dataset. The paper doesn't state the GPT-4o snapshot, the temperature, the number of tries for GPT-4o, the number of chemistry rows, any filtering by question type, or the split. It does state that SFT and RL used "the same set of prompts".
+- Why: To know what the shortfall can be compared against. "Correct" there means the final answer matched, and nothing says the reasoning was checked or that the chemistry annotations contained reasoning at all. The paper reports no first-try rate.
+- Affects: The shortfall is a difference from the paper, reported as such, but its size can't be known without their data. Using the same prompts for both trainers matches the paper. The email to Shenfeld and Pari asks for their annotations or code, with no reply as of this entry.
+
+Solutions kept out of the public repo:
+- What: The solutions and attempt logs stay on Drive and in a local ignored folder, and only the run's summary is committed. The trainers read the solutions from Drive.
+- Why: PLAN.md publishes them only if the license allows. SciKnowEval is MIT, but OpenAI's terms on sharing outputs and on training other models with them haven't been checked, and pushing to a public repo publishes them.
+- Affects: the data step's reproducibility until the check is done, before the public release in Stage 6.
+
+Correction to the trainer settings:
+- What: The "Trainer settings" entry says a model passed to GRPO by path takes its dtype from the model config. TRL 1.17.1's source says the opposite: a path defaults to float32, unlike from_pretrained. Both trainers still load the model themselves in fp32, fail on anything else, and verify after saving that the checkpoint reloads with identical fp32 weights.
+- Why: That risk was inferred from reading the docs and was wrong for GRPO. Loading the model ourselves costs nothing and works the same way for both trainers.
+- Affects: nothing in the code that was planned, only the stated reason.
+
+Trainer batch:
+- What: SFT uses the plain Transformers Trainer with a small collator, not TRL's SFTTrainer. GRPO uses a small subclass of TRL's trainer that generates in chunks of a set size. Each run has a time limit. Labels end at the first stop token and are never cut, as a longer row raises an error. Both trainers use the 1,381 solved rows, and GRPO's stop tokens must equal the ones KL uses.
+- Why: The data is already tokenized with the same prompt IDs as KL, so SFTTrainer's templating and truncation would only add ways to differ. TRL makes one generate call for the whole batch, and 64 by 8 at 512 tokens on 1.5B would need about 26 GB for the generation cache alone, an estimate from the model's size. The subclass overrides a private TRL method, which is safe only because TRL is pinned. The time limit protects the 50-unit budget.
+- Affects: all training. Dr. GRPO's loss is divided by max_completion_length, so that choice also rescales the gradient; Adam mostly cancels a constant scale, but gradient clipping doesn't.
+
+Memory and smoke configs:
+- What: The memory test runs SFT for 10 steps and GRPO for 5 steps, not 10, at 64 by 8. The GRPO smoke run uses a group of 16 by 8 for 60 steps, and SFT uses batch 16. All use lr 3e-5, with 50 warmup steps in the smoke runs, 8-bit AdamW, bf16 autocast, and up to 512 new tokens. The estimates are now 14 units for section B, 5 for C, 11 for D and 2 for E, about 32 in total. These estimates haven't been measured.
+- Why: A GRPO step at 64 by 8 generates 512 completions, so 5 steps should show memory and timing at a lower cost. Timing comes from two group sizes, 64 in section C and 16 in section D. None of these are pre-registered choices.
+- Affects: Stage 2's budget and the Part 3 inputs. The SFT targets run up to 825 tokens with a 90th percentile of 508, so a cap of 512 may be too short. Section E measures this on base responses, and it's decided from those.
+
+Mini-pilot pins:
+- What: Qwen/Qwen2.5-0.5B at 060db64 and GSM8K at 740312a. peft 0.21.2 is installed with no dependencies, only in the one-off merge runtime.
+- Why: The earlier plan left these open. The merge was tested with peft 0.21.2 and the pinned Transformers on a tiny model with adapters made for the test, not on the real adapters.
+- Affects: the mini-pilot only. If the real adapters fail to load, the peft version may need to change.
+
+Dry run of the trainer batch:
+- What: On CPU, with the real solutions, Qwen's real tokenizer, chat template and stop tokens, and a tiny random model: 2 SFT steps, 1 GRPO step, saving, reloading and the new-task eval all ran. Tests: 259 CPU tests and 2 network tests pass. A dry run with the real 0.5B weights was stopped after 11 minutes on Juan's laptop, as it was using nearly all the memory and hadn't finished its first run.
+- Why: To catch integration errors before spending Colab units. Real weights weren't needed for that.
+- Affects: Not yet run: the GPU tests, the 8-bit optimizer, bf16 autocast on a GPU, W&B logging, any real weights, and the moved retention code on a real model, which is only tested as identical to the Stage 1 source. Section C runs the GPU tests first.

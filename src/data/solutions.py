@@ -422,6 +422,31 @@ def save_solutions(rows: list[dict], attempts: list[dict], out_path: Path) -> in
     temporary.replace(out_path)
     return sum(row["row_id"] in kept for row in rows)
 
+def load_solved_rows(rows: list[dict], solutions_path: Path) -> list[dict]:
+    """
+    Gets the rows that have a solution, which both trainers use. Fails if the file doesn't match the rows.
+
+    Args:
+        rows (list[dict]): Train rows.
+        solutions_path (Path): Path of the file from save_solutions.
+    Returns:
+        The solved rows, with the added fields solution and attempt, ordered by row_id.
+    """
+    by_id = {row["row_id"]: row for row in rows}
+    solved = {}
+    with open(solutions_path, encoding="utf-8") as file:
+        for line in file:
+            record = json.loads(line)
+            row = by_id.get(record["row_id"])
+            if row is None or row["question_hash"] != record["question_hash"]:
+                raise ValueError(f"Solution for row {record['row_id']} doesn't match the train rows.")
+            if record["row_id"] in solved:
+                raise ValueError(f"Row {record['row_id']} has more than one solution.")
+            if not is_correct(record["solution"], get_gold(row), row["type"]):
+                raise ValueError(f"The solution for row {record['row_id']} isn't correct.")
+            solved[record["row_id"]] = {**row, "solution": record["solution"], "attempt": record["attempt"]}
+    return [solved[row_id] for row_id in sorted(solved)]
+
 def percentile(values: list[float], share: float) -> float | None:
     """
     Gets a nearest-rank percentile.

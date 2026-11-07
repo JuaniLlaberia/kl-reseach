@@ -63,3 +63,16 @@ def check_pushed(repo: Path) -> str:
     if head != upstream:
         raise RuntimeError(f"HEAD is {head[:7]} but the remote is {upstream[:7]}. Push, then pull on Colab before running.")
     return head
+
+def check_tag(repo: Path, tag: str) -> None:
+    """
+    Fails unless a tag is on the remote, so a run that must come after a timestamped commit can't run before it.
+
+    Args:
+        repo (Path): Path of the repo.
+        tag (str): Name of the tag.
+    Returns:
+        None.
+    """
+    if not git(repo, "ls-remote", "--tags", "origin", f"refs/tags/{tag}"):
+        raise RuntimeError(f"The tag {tag} isn't on the remote. Push it before running this section.")

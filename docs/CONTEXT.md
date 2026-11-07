@@ -18,7 +18,7 @@ Each module folder has its own CLAUDE.md with its spec (`src/kl/`, later `src/tr
 configs/       one YAML per training run, named like qwen05_chem_sft_lr3e-5_s0.yaml
 results/<run>/ one JSON per checkpoint (final.json, step500.json)
 data/splits/   seeded train/held-out row IDs per task
-data/solutions/ GPT-4o solutions and the log of every attempt
+data/solutions/ summary of the GPT-4o run; the solutions and the log of every attempt stay on Drive and out of git until the terms on sharing them are checked
 docs/PREREG.md frozen pre-registration (source of truth for every spec)
 docs/EXPERIMENTS_LOG.md      append-only lab log; never edit old entries
 notebooks/     one Colab notebook per stage; every run happens here
