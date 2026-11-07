@@ -26,7 +26,8 @@ def test_autocast_runs_in_bf16_while_weights_stay_in_fp32(chat_tokenizer, chat_m
 
     seen = []
     trainer = build_sft_trainer({**on_gpu(sft_config(max_steps=1))}, chat_model.to("cuda"), chat_tokenizer, solved_rows, tmp_path)
-    handle = trainer.model.model.layers[0].register_forward_hook(lambda module, inputs, output: seen.append(output[0].dtype if isinstance(output, tuple) else output.dtype))
+    # A linear layer, as autocast only changes matmuls: a decoder layer's output stays fp32, because the residual adds fp32 to bf16
+    handle = trainer.model.model.layers[0].self_attn.q_proj.register_forward_hook(lambda module, inputs, output: seen.append(output.dtype))
     trainer.train()
     handle.remove()
     assert seen and seen[0] == torch.bfloat16
