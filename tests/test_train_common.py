@@ -51,6 +51,8 @@ def test_there_are_configs_for_every_section():
     assert {path.stem for path in CONFIGS} == {
         "qwen05_chem_sft_memory_s0", "qwen05_chem_grpo_memory_s0", "qwen15_chem_sft_memory_s0",
         "qwen15_chem_grpo_memory_s0", "qwen15_chem_sft_smoke_s0", "qwen15_chem_grpo_smoke_s0",
+        # Section D2, after the collapse
+        "qwen15_chem_grpo_smoke_lr3e-6_s0", "qwen15_chem_grpo_memory_chunk512_s0",
     }
 
 @pytest.mark.parametrize("path", CONFIGS, ids=lambda path: path.stem)

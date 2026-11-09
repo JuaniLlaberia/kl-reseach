@@ -80,14 +80,20 @@ Chosen from their definitions, never from fit.
 ### Secondary variants
 
 - Logged: `kl_exact_{fwd,rev}_{base,ft}` and `kl_{k1,k2,k3}_rev_ft`, each as `mean_token` and `sum_seq`.
-- Sample-size variants: TBD
+- Sample-size variants: the primary KL recomputed on nested subsets of the 500 KL prompts, of 50, 100 and 250 prompts, with the full 500 as the primary. Each subset is stratified by subtask like the 500, drawn with a fixed seed, and saved to the repo before any chemistry KL is computed. They're computed from the per-sequence KL files, with no extra GPU. Reported: R² at each size, and the bootstrap spread of each checkpoint's KL at each size. Only the primary KL gets these; the other variants use all 500.
 - All of them are reported, including those that fit badly.
 
 ### Analyses
 
-- **RQ1:** primary KL vs forgetting, with R² and a bootstrap CI, per family and pooled. Do SFT and GRPO sit on one curve? Curve form and filtering: TBD
+- **RQ1:** primary KL vs forgetting, with R² and a bootstrap CI over checkpoints, per family and pooled. Do SFT and GRPO sit on one curve?
+  - Curve form: quadratic with a free intercept, forgetting = a + b·KL + c·KL², fit by least squares. This is RL's Razor's form ("a quadratic fit achieving R²=0.71"; "2nd deg. polynomial" in its Table 1), which states no intercept constraint.
+  - Points: primary fit on all checkpoints that count as points, with no filtering.
+  - Secondary fit, for comparison with RL's Razor only: their filter, keeping models "within 2 accuracy points of the Pareto frontier" (their Appendix B.1). Read here as: per method, the frontier is the checkpoints that no other checkpoint beats on both new-task accuracy and forgetting, and a checkpoint is kept if its forgetting is at most 2 points above the frontier, interpolated linearly at its new-task accuracy. The paper doesn't say whether its R² uses the filtered set.
+  - Why the filter isn't primary: the frontier is defined partly by forgetting, so filtering on it selects points by the outcome being predicted.
 - **RQ2:** every KL variant on the same checkpoints.
-- **RQ3:** SFT vs GRPO forgetting at matched new-task accuracy. Matching rule: TBD
+- **RQ3:** SFT vs GRPO forgetting at matched new-task accuracy.
+  - Matching rule, the same as Gate 1: SFT–GRPO pairs of checkpoints within 2 accuracy points. Pairs are one-to-one: take the closest pair, remove both checkpoints, and repeat until no remaining pair is within 2 points.
+  - Gap: SFT forgetting minus GRPO forgetting, averaged over the pairs, with a bootstrap CI over pairs.
 - Anything else is labelled exploratory.
 
 ## Part 3: written from the Stage 2 timings
@@ -100,9 +106,10 @@ These may use timings, memory and storage, never KL or forgetting.
 - Training GPU: TBD
 - Checkpoints that count as points (final only, or every N steps): TBD
 - GRPO group size and prompts per step: TBD
-- `max_new_tokens` and max completion length: TBD
+- GRPO learning rates: TBD from the section D2 rerun. RL's Razor's grid of 1e-5 to 5e-5 collapsed to bare guesses on the 1.5B model (logged 07/11/26), so any other grid is a logged deviation.
+- `max_new_tokens` and max completion length: 1024, for KL sampling, the new-task eval and GRPO alike. Logged: 7.7% of base responses on chemistry train prompts run past 512 tokens and 0.7% past 1024, and SFT targets reach 825.
 - Checkpoint storage (Hugging Face repo, Drive, or compute every KL variant and then delete): TBD
-- KL precision: logged as fp32. Confirm against the drift on a real smoke checkpoint: TBD
+- KL precision: fp32, confirmed on real smoke checkpoints. Logged: bf16 moves the primary KL by 5.7% on the GRPO checkpoint and 1.5% on the SFT one, an error that differs by method.
 
 ### Gate 1 budget criteria
 
@@ -113,4 +120,5 @@ These may use timings, memory and storage, never KL or forgetting.
 - SciKnowEval commit 92ef969, Chemistry L3, all 2,400 rows.
 - Split: 1,800 train, 600 held-out, 500 KL prompts from held-out, in `data/splits/chem_l3.json`.
 - Prompt wording: frozen in `build_prompt` (`src/data/chem.py`). Every prompt asks to "Reason briefly in plain text, then finish with a final line in exactly this form:", followed by `Answer: <letter>` or `Answer: <balanced equation>`. Filling prompts also ask to balance the equation and keep the reactants and products in the order given.
-- Share of train rows solved by GPT-4o: logged as 1,381 of 1,800 (76.7%), with 989 passing on the first try. SFT and GRPO both train on these rows.
+- Share of train rows solved by GPT-4o: logged as 1,384 of 1,800 (76.9%), with 990 passing on the first try, after rescoring with the lenient matcher (1,381 and 989 before). SFT and GRPO both train on these rows.
+- Answer extraction: the last answer label ("Answer:", "Final answer:", "The correct answer is:", "Final line:") wins, with the next line read if the label stands alone, and the last line read if there's no label. An MCQ answer is a letter A to D, alone or followed by its option's text. Logged 07/11/26.

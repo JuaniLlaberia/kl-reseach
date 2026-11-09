@@ -1,0 +1,21 @@
+# Smoke rerun after the collapse at lr 3e-5 (07/11/26): lower learning rate, a 1024-token cap and the lenient matcher.
+# 10 warmup steps, so most of the run is at the full rate. A pipeline check, not a pre-registered choice.
+run: qwen15_chem_grpo_smoke_lr3e-6_s0
+method: grpo
+model: Qwen/Qwen2.5-1.5B-Instruct
+revision: 989aa7980e4cf806f80c7fef2b1adb7bc71aa306
+seed: 0
+learning_rate: 3.0e-6
+warmup_steps: 10
+max_steps: 60
+weight_decay: 0.0
+max_grad_norm: 1.0
+optim: adamw_bnb_8bit
+bf16: true
+gradient_checkpointing: true
+logging_steps: 5
+group_size: 16
+prompts_per_step: 8
+loss_batch_size: 8
+generation_chunk_size: 128
+max_completion_length: 1024

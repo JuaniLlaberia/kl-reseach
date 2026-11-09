@@ -17,6 +17,15 @@ from src.eval.extract import FILLING, MCQ, extract_answer, is_correct, normalize
     ("Answer: B\nHope this helps!", "B"),
     # The last Answer line wins, as models often correct themselves
     ("Answer: A\nWait, that's wrong.\nAnswer: C", "C"),
+    # Rejected until 07/11/26, when Qwen2.5-1.5B-Instruct failed the format on 54% of MCQ responses, mostly in these ways
+    ("Answer:\nB", "B"),
+    ("Answer: B) 18", "B"),
+    ("Final answer: B", "B"),
+    ("Reasoning.\n\nB. 22", "B"),
+    ("Answer: <D> 12", "D"),
+    ("The correct answer is: B", "B"),
+    # A label beats a later line without one
+    ("Answer: B\nHope this helps!", "B"),
 ])
 def test_mcq_valid_answers(text, expected):
     assert extract_answer(text, MCQ) == expected
@@ -26,19 +35,57 @@ def test_mcq_valid_answers(text, expected):
     "The answer is B.",
     "I think it's B",
     "Answer:",
-    "Answer:\nB",
     "Answer: A or B",
     "Answer: A, B",
     "Answer: E",
-    "Answer: B) 18",
     "Answer: 18",
     "Answer: <letter>",
-    "Final answer: B",
     # A later invalid line isn't rescued by an earlier valid one
     "Answer: B\nAnswer: not sure",
+    # A word that starts with a letter isn't an option
+    "Reasoning.\nA total of 16 rotatable bonds.",
+    "Answer: Cannot be determined",
+    "Answer: B and C",
 ])
 def test_mcq_invalid_answers(text):
     assert extract_answer(text, MCQ) is None
+
+# Real endings of Qwen2.5-1.5B-Instruct responses on chemistry train prompts (07/11/26), with the letter each one states
+@pytest.mark.parametrize("ending, expected", [
+    ("Therefore, there are a total of 2 possible rotatable bonds in the molecule.\n\nFinal answer: 23", None),
+    ("Thus, the total number of hydrogen bond donors is 18.\n\n**Final answer: A. 16**", "A"),
+    ("we arrive at the answer of 17 hydrogen bond donors.\n\nFinal line: D. 17", "D"),
+    ("Therefore, the correct answer is 16.\n\nD. 16", "D"),
+    ("Therefore, the correct answer is:\n\nC. 4", "C"),
+    ("The correct answer is: <letter>B. 19", None),
+    ("C(=O)N1'.\n\nFinal line:\nD. 21", "D"),
+    ("Therefore, the answer is B. 21.\n\n-----------------\nD. 7", "D"),
+    ("totaling 16 rotatable bonds.", None),
+    ("Final answer: <117>", None),
+    ("So, **B. 495.700** is the molar mass of the molecule.", None),
+    ("The molar weight of this molecule is 1467.700. Answer: A", "A"),
+    ("Therefore, the molar weight of the molecule is **117.120 g/mol**. \n\nFinal answer: B. 117.120", "B"),
+    ("This corresponds to option B.", None),
+    ("Final Answer: Cannot be determined from the provided information.", None),
+    ("**Final Answer:** A. 2225.600", "A"),
+    ('print("Final Answer: A")\n```\n\nFinal Answer: A', "A"),
+    ("B. 2880.600", "B"),
+    ("Answer:\nC. 3278.900", "C"),
+    ("Answer:\nUnable to determine the correct match.", None),
+    ("Answer: D (4)", "D"),
+    ("Answer: F. The question cannot be correctly answered with the given information.", None),
+])
+def test_real_qwen_mcq_endings(ending, expected):
+    assert extract_answer(f"Some reasoning.\n\n{ending}", MCQ) == expected
+
+# Real filling endings from the same responses: the equation is read wherever it was stated.
+# Only the start is checked in the first, as the model's own LaTeX is broken further on
+@pytest.mark.parametrize("ending, start", [
+    (r"Final line: Answer: \[ \text{MgSO}_4 + 2\text{NH}_4\text{Cl} \rightarrow \text{MgCl}_2 + 2\text{(NH}_4\text){}_2\text{SO}_4 \]", "MgSO4+2NH4Cl=MgCl2+"),
+    ("The balanced equation is:\nCr₂O₃ + 2Al = Al₂O₃ + 2Cr", "Cr2O3+2Al=Al2O3+2Cr"),
+])
+def test_real_qwen_filling_endings(ending, start):
+    assert extract_answer(f"Balancing it.\n\n{ending}", FILLING).startswith(start)
 
 GOLD_EQUATION = "Na2CrO4(aq) + 2LiBr(aq) = Li2CrO4(aq) + 2NaBr(s)"
 

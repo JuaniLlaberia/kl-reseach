@@ -51,8 +51,8 @@ This week ends with a frozen pilot spec and written predictions. If time runs sh
 **Read** (in this order; cut from the bottom)
 
 - [x] Mechanistic origins (RL forgot less despite larger KL)
-- [ ] Context distillation, §6.2
-- [ ] ES study, §A.4.1
+- [x] Context distillation, §6.2
+- [x] ES study, §A.4.1
 - [ ] Lai et al.
 
 **Chemistry data**
@@ -67,8 +67,8 @@ This week ends with a frozen pilot spec and written predictions. If time runs sh
 
 **Trainers**
 
-- [ ] SFT: loss on response tokens only, max length set
-- [ ] GRPO: Dr. GRPO loss, binary reward, no format reward, temperature 1.0, max completion length set
+- [x] SFT: loss on response tokens only, max length set
+- [x] GRPO: Dr. GRPO loss, binary reward, no format reward, temperature 1.0, max completion length set
 
 **Draft the pre-registration first**
 

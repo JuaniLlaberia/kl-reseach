@@ -3,10 +3,12 @@ import re
 MCQ = "mcq-4-choices"
 FILLING = "filling"
 
-# A line that starts with "Answer:", allowing markdown around the label ("**Answer:** B", "**Answer**: B")
-ANSWER_LINE = re.compile(r"^[\W_]*answer[\W_]*?:(.*)$", re.IGNORECASE)
-# One letter and nothing else, allowing punctuation and markdown around it ("(B)", "**B**", "B.")
-MCQ_LETTER = re.compile(r"^[\W_]*([A-Da-d])[\W_]*$")
+# A label for the final answer anywhere in a line: "Answer:", "Final answer:", "The correct answer is:", or "Final line:",
+# which small models copy from the prompt. Markdown may sit between the word and the colon ("**Answer**: B")
+ANSWER_LABEL = re.compile(r"\b(?:answer(?:\s+is)?|final\s+line)\b[*_\s]*:", re.IGNORECASE)
+# A letter at the start, alone ("B", "(B)", "**B**", "B.") or followed by its option's text ("B. 22", "D (4)", "<D> 12").
+# A letter followed by a word isn't one ("A total of", "Cannot be", "A or B")
+MCQ_LETTER = re.compile(r"^[\W_]*([A-Da-d])(?:[\W_]*$|\s*[.):\]>]|\s+\()")
 # Longest first, so "-->" isn't read as "-" followed by "->"
 ARROWS = ("\\longrightarrow", "\\rightarrow", "\\to", "-->", "->", "⟶", "→")
 HYDRATE_DOTS = ("\\cdot", "·")
@@ -20,18 +22,23 @@ UNICODE_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789
 
 def find_answer_text(text: str) -> str | None:
     """
-    Finds what follows the last "Answer:" line of a response.
+    Finds a response's final answer: what follows the last answer label, or the next non-empty line if the label
+    stands alone. With no label anywhere, it's the last non-empty line, as small models often end on the answer alone.
+    So the eval measures the task rather than how closely the format was followed, which SFT learns from its targets
+    and GRPO has to find.
 
     Args:
         text (str): Full response.
     Returns:
-        The text after the label, or None if there's no such line.
+        The answer's text, which may be empty, or None if the response is empty.
     """
-    for line in reversed(text.splitlines()):
-        match = ANSWER_LINE.match(line.strip())
-        if match:
-            return match.group(1).strip()
-    return None
+    lines = [line.strip() for line in text.splitlines()]
+    for index in range(len(lines) - 1, -1, -1):
+        labels = list(ANSWER_LABEL.finditer(lines[index]))
+        if labels:
+            answer = lines[index][labels[-1].end():].strip()
+            return answer or next((line for line in lines[index + 1:] if line), "")
+    return next((line for line in reversed(lines) if line), None)
 
 def normalize_equation(equation: str) -> str:
     """
